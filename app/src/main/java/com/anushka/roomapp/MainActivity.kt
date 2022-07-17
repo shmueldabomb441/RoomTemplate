@@ -1,12 +1,21 @@
 package com.anushka.roomapp
 
-import androidx.appcompat.app.AppCompatActivity
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
-import android.util.Log
+import android.view.LayoutInflater
+import android.widget.Button
+import android.widget.DatePicker
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var bookDao: BookDao
@@ -14,53 +23,73 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val fab = findViewById<FloatingActionButton>(R.id.add_time)
+        val list = findViewById<ScrollView>(R.id.scrollView)
+
         val db = Room.databaseBuilder(
-                applicationContext,
-                BookDatabase::class.java, "book_database"
+            applicationContext,
+            BookDatabase::class.java, "book_database"
         ).build()
 
         bookDao = db.bookDao()
-        testDB()
+        val from = LayoutInflater.from(this)
+        fab.setOnClickListener {
+            val id = UUID.randomUUID()
+            val book = Book(id.toString(), "", "", "")
+            from.inflate(R.layout.list_item, list, true).apply {
+                val date = findViewById<TextView>(R.id.date)
+                val startTime = findViewById<TextView>(R.id.start)
+                val sndTime = findViewById<TextView>(R.id.end)
+                val starttimePickerDialog = TimePickerDialog(
+                    this@MainActivity,
+                    { view, hourOfDay, minute ->
+                        val s = "$hourOfDay:$minute"
+                        book.start = s
+                        sndTime.text = s
+                        updateBook(book)
+                    },
+                    0,
+                    0,
+                    false
+                )
+                val endtimePickerDialog = TimePickerDialog(
+                    this@MainActivity,
+                    { view, hourOfDay, minute ->
+                        val s = "$hourOfDay:$minute"
+                        startTime.text = s
+                        book.end = s
+                        updateBook(book)
 
+                    },
+                    0,
+                    0,
+                    false
+                )
+                val datePickerDialog = DatePickerDialog(this@MainActivity, { datePicker: DatePicker, i: Int, i1: Int, i2: Int ->
+                    val s = LocalDate.of(i, i1, i2).toString()
+                    date.text = s
+                    book.date = s
+                    updateBook(book)
+                }, 0, 0, 0)
+                findViewById<Button>(R.id.set_start_time).setOnClickListener {
+                    starttimePickerDialog.show()
+                }
+                findViewById<Button>(R.id.set_end_time).setOnClickListener {
+                    endtimePickerDialog.show()
+                }
+                findViewById<Button>(R.id.set_date).setOnClickListener {
+                    datePickerDialog.show()
+                }
+            }
+            addItem(book)
+        }
     }
 
-    private fun testDB(){
+    fun addItem(book: Book) = lifecycleScope.launch(Dispatchers.IO) {
+        bookDao.insertBook(book)
+    }
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            //Insert
-            Log.i("MyTAG","*****     Inserting 3 Books     **********")
-            bookDao.insertBook(Book(0,"Java","Alex"))
-            bookDao.insertBook(Book(0,"PHP","Mike"))
-            bookDao.insertBook(Book(0,"Kotlin","Amelia"))
-            Log.i("MyTAG","*****     Inserted 3 Books       **********")
-
-            //Queery
-            val books = bookDao.getAllBooks()
-            Log.i("MyTAG","*****   ${books.size} books there *****")
-            for(book in books){
-                Log.i("MyTAG","id: ${book.id} name: ${book.name} author: ${book.author}")
-            }
-
-            //Update
-            Log.i("MyTAG","*****      Updating a book      **********")
-            bookDao.updateBook(Book(1,"PHPUpdated","Mike"))
-            //Queery
-            val books2 = bookDao.getAllBooks()
-            Log.i("MyTAG","*****   ${books2.size} books there *****")
-            for(book in books2){
-                Log.i("MyTAG","id: ${book.id} name: ${book.name} author: ${book.author}")
-            }
-
-            //delete
-            Log.i("MyTAG","*****       Deleting a book      **********")
-            bookDao.deleteBook(Book(2,"Kotlin","Amelia"))
-            //Query
-            val books3 = bookDao.getAllBooks()
-            Log.i("MyTAG","*****   ${books3.size} books there *****")
-            for(book in books3){
-                Log.i("MyTAG","id: ${book.id} name: ${book.name} author: ${book.author}")
-            }
-        }
-
+    fun updateBook(book: Book) = lifecycleScope.launch(Dispatchers.IO) {
+        bookDao.updateBook(book)
     }
 }
